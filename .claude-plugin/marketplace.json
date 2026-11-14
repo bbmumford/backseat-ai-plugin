@@ -1,0 +1,21 @@
+{
+  "name": "backseat-ai",
+  "owner": {
+    "name": "bbmumford"
+  },
+  "metadata": {
+    "description": "Backseat reviewers for Claude Code: a configurable panel of lanes that review each turn that changes code and deliver their findings above the prompt.",
+    "version": "0.35.0"
+  },
+  "plugins": [
+    {
+      "name": "backseat",
+      "description": "A panel of backseat reviewers watches each turn that changes code and delivers compliance verdicts above the prompt. Each reviewer is a lane with its own question, its own provider, and its own severity floor: the spec lane asks whether the change obeys the documents that govern it, the reuse lane asks whether it rewrote something the tree already has, and the docs lane asks which design documents the change has just made untrue. Lanes run in parallel through a provider adapter (a fork of this conversation, the Kimi CLI, the Codex CLI, or any CLI you describe), their findings are deduplicated by subject and ranked by severity, and they cross-link so one lane's finding becomes another lane's evidence. Findings are delivered, not blocking, unless a lane is configured to hold the turn. A reviewer is scoped by where it is written: a file in the repository reviews that codebase, a file in the user lane directory reviews every repository on the machine, and /backseat lane adds one for the current session alone; a name defined twice is kept once, by the more specific tier. A lane marked agents also reviews each subagent's own turn, and what a subagent wrote is reviewed again at the end of the turn that delegated it.",
+      "version": "0.35.0",
+      "author": {
+        "name": "bbmumford"
+      },
+      "source": "./plugins/backseat"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+
+# Upstream sources the plugin was designed from. Not part of the plugin, and not all of
+# it may be redistributed (see _reference/NOTICE.md in a working copy).
+_reference/
+
+# Review of code that ships only inside the Claude Code executable: not for publication.
+docs/review/you-should-know-mod.md

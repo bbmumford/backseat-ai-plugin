@@ -1,0 +1,15 @@
+{
+  "name": "backseat-mod",
+  "version": "0.35.0",
+  "private": true,
+  "description": "Type-checking and test tooling for the backseat mod. The mod itself needs no build step: Claude Code loads its .ts and .tsx files directly.",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "claude plugin test",
+    "validate": "claude plugin validate . --strict",
+    "check": "npm run validate && npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "name": "backseat",
+  "version": "0.35.0",
+  "description": "A panel of backseat reviewers watches each turn that changes code and delivers compliance verdicts above the prompt. Each reviewer is a lane with its own question, its own provider, and its own severity floor: the spec lane asks whether the change obeys the documents that govern it, the reuse lane asks whether it rewrote something the tree already has, and the docs lane asks which design documents the change has just made untrue. Lanes run in parallel through a provider adapter (a fork of this conversation, the Kimi CLI, the Codex CLI, or any CLI you describe), their findings are deduplicated by subject and ranked by severity, and they cross-link so one lane's finding becomes another lane's evidence. Findings are delivered, not blocking, unless a lane is configured to hold the turn. A reviewer is scoped by where it is written: a file in the repository reviews that codebase, a file in the user lane directory reviews every repository on the machine, and /backseat lane adds one for the current session alone; a name defined twice is kept once, by the more specific tier. A lane marked agents also reviews each subagent's own turn, and what a subagent wrote is reviewed again at the end of the turn that delegated it.",
+  "author": {
+    "name": "bbmumford"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "review",
+    "code-review",
+    "compliance",
+    "spec-drift",
+    "provider-agnostic",
+    "mod"
+  ],
+  "userConfig": {
+    "lanes": {
+      "type": "string",
+      "title": "Reviewer lanes",
+      "description": "Which lanes review a turn, in the order their findings are ranked when severity ties. \"spec\": does the change obey the documents that govern it. \"reuse\": does it rewrite something the tree already has. \"docs\": which design documents has it just made untrue. A lane named here that is not built in is read from the customLanes option. Written as a comma-separated list.",
+      "required": false,
+      "default": "spec, reuse, docs"
+    },
+    "provider": {
+      "type": "string",
+      "title": "Default reviewer provider",
+      "description": "Who answers a lane that names no provider of its own. \"claude\" asks $.model.complete with the review as a self-contained prompt: no setup, no second subscription, it cannot edit the tree, and it does not inherit anything the session has already concluded. \"fork\" instead forks this conversation, so the reviewer sees what the session was doing \u2014 useful, but it inherits a wrong premise the session has accepted, and it falls back to a completion when the session has no transcript yet. \"kimi\" and \"codex\" shell out to those CLIs and need them installed and signed in. \"off\" disables every lane that has no provider of its own.",
+      "required": false,
+      "default": "claude",
+      "options": [
+        "claude",
+        "fork",
+        "kimi",
+        "codex",
+        "off"
+      ]
+    },
+    "fallback": {
+      "type": "string",
+      "title": "Fallback reviewer provider",
+      "description": "The provider to ask when a lane's own provider fails: it could not be run, it exited badly, it timed out, or it answered with no verdict in it. A spent usage limit, an expired sign-in and a CLI that is not installed all look like that, and each one silences a reviewer without saying so. It is not asked when the provider reports a clean review, because that is a complete answer, and there is one retry rather than a chain. A lane file's \"fallback\" field overrides this for that lane; leave this empty for no fallback.",
+      "required": false,
+      "default": ""
+    },
+    "claudeModel": {
+      "type": "string",
+      "title": "Model for the claude provider",
+      "description": "The model a \"claude\" lane asks, as an alias such as \"sonnet\" or \"haiku\" or a full model id. A lane file's own \"model\" field overrides it. Reviews are asked with a token cap well above the default so a verdict carrying several findings is not truncated mid-finding.",
+      "required": false,
+      "default": "sonnet"
+    },
+    "providers": {
+      "type": "string",
+      "title": "Extra providers",
+      "description": "CLIs with no shipped adapter, as \"name = command\" entries separated by semicolons, for example \"gemini = gemini -m {model} -p {prompt}; ollama = ollama run {model}\". The command is split on whitespace into an argv, so no shell is involved; {prompt} becomes the whole prompt as one argument, {model} the lane's model (the flag is dropped when the lane names none), and {schema} the answer schema's path. A command with no {prompt} gets the prompt on standard input. A lane can also carry its own \"command:\" field instead of naming one here.",
+      "required": false,
+      "default": ""
+    },
+    "specProvider": {
+      "type": "string",
+      "title": "Provider for the spec lane",
+      "description": "Overrides the default provider for the spec lane. \"default\" means use the provider option.",
+      "required": false,
+      "default": "default",
+      "options": [
+        "default",
+        "claude",
+        "fork",
+        "kimi",
+        "codex",
+        "off"
+      ]
+    },
+    "reuseProvider": {
+      "type": "string",
+      "title": "Provider for the reuse lane",
+      "description": "Overrides the default provider for the reuse lane. \"default\" means use the provider option.",
+      "required": false,
+      "default": "default",
+      "options": [
+        "default",
+        "claude",
+        "fork",
+        "kimi",
+        "codex",
+        "off"
+      ]
+    },
+    "docsProvider": {
+      "type": "string",
+      "title": "Provider for the docs lane",
+      "description": "Overrides the default provider for the docs lane. \"default\" means use the provider option.",
+      "required": false,
+      "default": "default",
+      "options": [
+        "default",
+        "claude",
+        "fork",
+        "kimi",
+        "codex",
+        "off"
+      ]
+    },
+    "enforcement": {
+      "type": "string",
+      "title": "What a finding does",
+      "description": "\"deliver\": findings are drawn above the prompt and never hold the turn. \"severity\": a finding at or above blockFrom also holds the turn at the Stop hook, the rest are delivered. \"block\": any finding holds the turn. Holding a turn requires the Stop hook, which this plugin registers but which only acts under \"severity\" and \"block\".",
+      "required": false,
+      "default": "deliver",
+      "options": [
+        "deliver",
+        "severity",
+        "block"
+      ]
+    },
+    "blockFrom": {
+      "type": "string",
+      "title": "Severity that holds a turn",
+      "description": "Under the \"severity\" enforcement mode, the lowest severity that holds the turn. Ignored under \"deliver\" and \"block\".",
+      "required": false,
+      "default": "high",
+      "options": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "specDocs": {
+      "type": "string",
+      "title": "Documents that govern the code",
+      "description": "Paths, relative to the repository root, that the spec lane reads before it judges a change: the prompt-of-record, the specification, the acceptance criteria. A path that does not exist is skipped. When this is empty the spec lane reads the repository's own instruction files (CLAUDE.md, AGENTS.md) and says so in its finding. Written as a comma-separated list.",
+      "required": false,
+      "default": ""
+    },
+    "designDocs": {
+      "type": "string",
+      "title": "Design documents to keep true",
+      "description": "Paths or directories, relative to the repository root, that the docs lane holds responsible for describing the implementation. After a change, the lane names which of these the change has made untrue and what the correcting edit is. Written as a comma-separated list.",
+      "required": false,
+      "default": "docs/design, docs, DESIGN.md, ARCHITECTURE.md"
+    },
+    "customLanes": {
+      "type": "string",
+      "title": "Extra lanes",
+      "description": "Lanes of your own, each written as \"name|provider|question\", for example \"perf|kimi|Did this change add work to a hot path?\". The provider may be left empty to use the provider option. A name listed here and in lanes is reviewed alongside the built-in lanes. Entries are separated by semicolons, because a lane's question is a sentence and sentences contain commas.",
+      "required": false,
+      "default": ""
+    },
+    "laneDir": {
+      "type": "directory",
+      "title": "Lane definition directory",
+      "description": "Where this repository's lane files live, relative to it. A lane file is a Markdown file whose frontmatter sets provider, command, model, question, docs, needs, severity, confidence and agents, and whose body is that reviewer's standing instructions. A lane file replaces a lane of the same name from a less specific tier and adds one of any other name; writing the file is what turns the lane on, and \"enabled: false\" in it is how a lane is parked. Run /backseat setup to see the roster that resulted.",
+      "required": false,
+      "default": ".backseat/lanes"
+    },
+    "userLaneDir": {
+      "type": "directory",
+      "title": "Machine-wide lane directory",
+      "description": "Where the lane files that apply to every repository live, as an absolute path. This is the tier for reviewers that are about how you write code rather than about one codebase \u2014 a coding-pattern reviewer belongs here, and is then read in every repository on this machine. Left empty it is ~/.claude/backseat/lanes, resolved at session start. A lane named here and again in the repository's own lane directory is the repository's, whole, so a repository can retune or park a machine-wide reviewer without editing it. Add \"agents: true\" to a lane here to have it review what subagents write as well as the main loop.",
+      "required": false,
+      "default": ""
+    },
+    "crossLink": {
+      "type": "boolean",
+      "title": "Let lanes read each other",
+      "description": "When on, the lanes run in two waves: the spec and reuse lanes first, then the docs lane with their findings as evidence, so a rewrite the reuse lane found becomes a document the docs lane knows to check. When off, every lane runs in one wave and sees only the change.",
+      "required": false,
+      "default": true
+    },
+    "everyTurns": {
+      "type": "number",
+      "title": "Turns between reviews",
+      "description": "Review at most once every N turns that changed code. 1 reviews every such turn. A turn that changed no code is never reviewed, whatever this says.",
+      "required": false,
+      "default": 1
+    },
+    "maxConcurrency": {
+      "type": "number",
+      "title": "Lanes at once",
+      "description": "How many lanes may be in flight together. Provider subscriptions have their own rate limits, and a fan-out wider than them turns findings into errors.",
+      "required": false,
+      "default": 2
+    },
+    "maxCards": {
+      "type": "number",
+      "title": "Findings drawn at once",
+      "description": "How many findings are drawn above the prompt. The rest are kept and counted on the last card.",
+      "required": false,
+      "default": 3
+    },
+    "timeoutMs": {
+      "type": "number",
+      "title": "How long a lane may take",
+      "description": "How long a lane may take before it is abandoned. A reviewing CLI is slower and far more variable than an API call \u2014 a minute is common, and several minutes happens when two of them run at once \u2014 so this is generous on purpose. The panel never holds a turn, so a longer wait costs a later card rather than a slower session, whereas a timeout costs the whole review and reports it as a failed provider. Lower it only if you would rather lose a slow reviewer than wait for it.",
+      "required": false,
+      "default": 300000
+    },
+    "minConfidence": {
+      "type": "number",
+      "title": "Confidence floor",
+      "description": "Findings a lane reports below this confidence are dropped. The reviewers are told that silence is the right answer when they have nothing, and this is the second filter behind that instruction.",
+      "required": false,
+      "default": 0.6
+    },
+    "debug": {
+      "type": "boolean",
+      "title": "Show lane diagnostics",
+      "description": "Draws a line per lane with its outcome, latency and token usage, and logs the reason a lane produced nothing to the debug log instead of dropping it silently.",
+      "required": false,
+      "default": false
+    },
+    "refine": {
+      "type": "string",
+      "title": "Refine the conversation instead of summarising it",
+      "description": "What a compaction does. off: the engine summarises, as it always has. on: this panel hands back the engine's own messages minus what the rules, and a reviewer where one has run, agreed could go \u2014 every survivor exactly as it was, nothing paraphrased. A refinement that would free less than a tenth of the conversation is not installed, and the engine summarises instead. Values: off, on.",
+      "default": "off"
+    },
+    "refineAtPercent": {
+      "type": "number",
+      "title": "Refine at this share of the context window",
+      "description": "0 to 100. Above 0, a turn that ends with the context window this full starts a refinement, so the conversation is thinned before the engine would have compacted it. 0 waits for the engine's own threshold or for /backseat clean. Requires refine: on.",
+      "default": 0
+    },
+    "autofix": {
+      "type": "string",
+      "title": "Hand findings over to be fixed",
+      "description": "Whether a finding is handed to the model to fix without waiting for the fix button. \"on\" submits each new finding as your own instruction, worst first, once per subject \u2014 so a review that found three things queues three turns of work. \"off\" leaves every finding on the panel until you press fix.",
+      "required": false,
+      "default": "off",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

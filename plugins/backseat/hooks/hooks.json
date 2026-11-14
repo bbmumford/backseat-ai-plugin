@@ -1,0 +1,6 @@
+{
+  "description": "A turn that edited code is reviewed by the lanes the roster resolved to: a tool.call hook records which files the turn touched, keyed by the loop that wrote them so a subagent's turn cannot carry off the main loop's evidence; a turn.complete hook starts one reviewer per lane over that evidence without holding the turn, with a subagent's turn reviewed only by the lanes that asked for subagents; and a ui.render hook on AbovePrompt draws the findings that come back as cards whose buttons hand a finding to Claude as work, explain it, or dismiss it. Lanes answer through a provider adapter \u2014 a completion, a fork of this conversation, or a CLI named in the provider options \u2014 and their findings are deduplicated by subject, filtered by confidence, merged where two lanes agree, and ranked by severity before they are drawn. A classic.Stop hook holds the turn only under the severity and block enforcement modes; under the default deliver mode it hands each finding to the model once and then lets the turn end, because context returned from a Stop hook is itself a reason the host carries the turn on.",
+  "modules": [
+    "./register.ts"
+  ]
+}
